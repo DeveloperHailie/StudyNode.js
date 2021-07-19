@@ -17,9 +17,8 @@ router.get("/goods/add/crawling", async (req, res) => {
       method: "GET",
       responseType: "arraybuffer",
     }).then(async (html) => {
-      // 한글 깨짐 방지
       const content = iconv.decode(html.data, "EUC-KR").toString();
-      // 원하는 데이터 가져오기
+      
       const $ = cheerio.load(content);
       const list = $("ol li");
       await list.each(async (i, tag) => {
@@ -28,13 +27,11 @@ router.get("/goods/add/crawling", async (req, res) => {
         let title = $(tag).find("p.image a img").attr("alt")
         let price = $(tag).find("p.price strong").text()
 
-        if(desc && image && title && price){ // 데이터가 다 있을 때만
-          // goods 스키마에 맞게 가공
+        if(desc && image && title && price){
           price = price.slice(0,-1).replace(/(,)/g, "")
           let date = new Date()
           let goodsId = date.getTime()
-          
-          // 몽고디비에 추가
+
           await Goods.create({
             goodsId:goodsId,
             name:title,
