@@ -2,7 +2,42 @@ const express = require("express");
 const Goods = require("../schemas/Goods");
 const Cart = require("../schemas/cart");
 
+const cheerio = require("cheerio");
+const axios = require("axios");
+const iconv = require("iconv-lite");
+const url =
+  "http://www.yes24.com/24/Category/BestSeller";
+
 const router = express.Router();
+
+router.get("/goods/add/crawling", async (req, res) => {
+
+  try {
+    await axios({
+      url: url,
+      method: "GET",
+      responseType: "arraybuffer",
+    }).then(async (html) => {
+      // 한글 깨짐 방지
+      const content = iconv.decode(html.data, "EUC-KR").toString();
+      // 원하는 데이터 가져오기
+      const $ = cheerio.load(content);
+      const list = $("ol li");
+      await list.each(async (i, tag) => {
+        let desc = $(tag).find("p.copy a").text()
+        let image = $(tag).find("p.image a img").attr("src")
+        let title = $(tag).find("p.image a img").attr("alt")
+        let price = $(tag).find("p.price strong").text()
+      })
+    });
+    res.send({ result: "success", message: "크롤링이 완료 되었습니다." });
+
+  } catch (error) {
+    console.log(error)
+    res.send({ result: "fail", message: "크롤링에 문제가 발생했습니다", error: error });
+  }
+});
+
 
 router.get("/goods", async (req, res, next) => {
   try {
@@ -59,23 +94,23 @@ router.post("/goods/:goodsId/cart", async (req, res) => {
   res.send({ result: "success" });
 });
 
-router.delete("/goods/:goodsId/cart", async (req,res) => {
+router.delete("/goods/:goodsId/cart", async (req, res) => {
   const { goodsId } = req.params;
 
   const isGoodsInCart = await Cart.find({ goodsId });
-  if(isGoodsInCart.length > 0){
+  if (isGoodsInCart.length > 0) {
     await Cart.deleteOne({ goodsId });
   }
 
-  res.send({ result: "success"} );
+  res.send({ result: "success" });
 });
 
-router.patch("/goods/:goodsId/cart", async (req,res) => {
+router.patch("/goods/:goodsId/cart", async (req, res) => {
   const { goodsId } = req.params;
   const { quantity } = req.body;
 
   const isGoodsInCart = await Cart.find({ goodsId });
-  if(isGoodsInCart.length > 0){
+  if (isGoodsInCart.length > 0) {
     await Cart.updateOne({ goodsId }, { $set: { quantity } });
   }
 
