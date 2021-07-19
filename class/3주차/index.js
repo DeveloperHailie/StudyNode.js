@@ -2,6 +2,7 @@ const express = require('express')
 const app = express()
 const port = 3000
 
+// 처음에 들어오면 접속 및 연결, 스키마까지
 const connect = require('./schemas');
 connect();
 
