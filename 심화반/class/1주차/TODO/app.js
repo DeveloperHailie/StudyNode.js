@@ -59,6 +59,7 @@ router.patch("/todos/:todoId", async (req, res) => {
   } else if (value) { // 할 일 내용 변경
       todo.value = value; 
   } else if (done !== undefined) { // 했음 / 안했음 
+    // true일 때, false일 때 둘다 처리 필요
     todo.doneAt = done ? new Date() : null;
   }
 
