@@ -22,26 +22,16 @@ router.get("/todos", async (req,res) => {
     const todos = await Todo.find().sort("-order").exec(); // 내림차순
 
     res.send({ todos });
-    /**
-     * {
-     *  todos: {
-     *      { todoId: '~~', value: '~~', order: 1, ...},
-     *       ...
-     *  }
-     * }
-     */
 });
 
 // 할 일 추가
 router.post("/todos", async (req, res) => {
-    const { value } = req.body; // 구조 분해 할당, destructoring
-    // req.body = { value: 'value내용' }
-    // value = 'value내용'
+    const { value } = req.body; 
 
     const maxOrderTodo = await Todo.findOne().sort("-order").exec(); // 내림차순 정렬
-    let order = 1; // 기본값
+    let order = 1; 
     
-    if(maxOrderTodo){ //order가 있는 경우
+    if(maxOrderTodo){ 
         order = maxOrderTodo.order + 1;
     }
     
@@ -56,14 +46,12 @@ router.post("/todos", async (req, res) => {
 router.patch("/todos/:todoId", async (req,res) => {
     const { todoId } = req.params;
     const { order } = req.body;
-    // todoId 가진 애를 order값으로 수정하려 한다.
 
-    // 내가 바꾸려는 todo 찾기
     const todo = await Todo.findById(todoId).exec();
 
     if (order) { 
         const targetTodo = await Todo.findOne({ order }).exec();
-        if (targetTodo){ // 바꿀려는 타깃 투두 있는지 체크
+        if (targetTodo){
             targetTodo.order = todo.order;
             await targetTodo.save();
         }
@@ -71,8 +59,8 @@ router.patch("/todos/:todoId", async (req,res) => {
         await todo.save();
     }
 
-    res.send({}); // response 항상 내줘야 함. 안그러면 클라이언트에서 에러난다.
-});
+    res.send({}); 
+  });
 
 app.use("/api", bodyParser.json(), router);
 app.use(express.static("./assets"));
