@@ -2,10 +2,11 @@ const express = require("express");
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const Joi = require('joi');
+const { Op } = require('sequelize');
 
-const User = require("./models/user"); 
-const Cart = require("./models/cart");
-const Goods = require("./models/goods")
+const { User } = require("./models"); 
+//const Cart = require("./models/cart");
+//const Goods = require("./models/goods")
 const authMiddleware = require("./middlewares/auth-middleware");
 
 mongoose.connect("mongodb://localhost/shopping-demo", {
@@ -21,8 +22,8 @@ const router = express.Router();
 const postUsersSchema = Joi.object({
     nickname: Joi.string().required(),
     email: Joi.string().email().required(),
-    password: Joi.string().required(),
-    confirmPssword: Joi.string().required()
+    password: Joi.string().required(), 
+    confirmPassword: Joi.string().required() 
 });
 // 회원가입
 router.post("/users", async (req, res) => {
@@ -38,10 +39,12 @@ router.post("/users", async (req, res) => {
             return;
         };
 
-        const existUsers = await User.find({ //validation
+        const existUsers = await User.findAll({ //validation
             // email이나 nickname에 맞는 데이터가 있는지
-            $or: [{ email }, { nickname }],
-        }).exec();
+            where:{
+                [Op.or] : [{ nickname }, { email }],
+            },
+        });
         if (existUsers.length) {
             res.status(400).send({
                 errorMessage: '이미 가입된 이메일 또는 닉네임이 있습니다.'
@@ -49,13 +52,13 @@ router.post("/users", async (req, res) => {
             return;
         }
 
-        const user = new User({ email, nickname, password });
-        await user.save();
-
+        await User.create({ email, nickname, password });
+    
         // 사용자 리소스 생성
         res.status(201).send({});
 
     } catch (err) {
+        console.log(err);
         res.status(400).send({
             errorMessage: "요청한 데이터의 형식이 올바르지 않습니다."
         });
@@ -72,7 +75,7 @@ router.post("/auth", async (req,res) => {
     try {
         // const { email, password } = req.body;
         const { email, password } = await postAuthSchema.validateAsync(req.body);
-        const user = await User.findOne({ email, password }).exec();
+        const user = await User.findOne({ where: { email, password } });
 
         if (!user) {
             //401 인증 실패

@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/user');
+const { User } = require('../models');
 
 module.exports = (req, res, next) => {
     const { authorization } = req.headers;
@@ -16,8 +16,7 @@ module.exports = (req, res, next) => {
         const { userId } = jwt.verify(tokenValue, "my-secret-key");
         
         // async 함수 아니므로 await 사용 불가
-        User.findById(userId)
-            .exec()
+        User.findByPk(userId)
             .then((user) => {
                 if (!user) {
                     res.status(401).send({
