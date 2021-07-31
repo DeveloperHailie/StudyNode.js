@@ -1,5 +1,6 @@
 const express = require("express");
-const mongoose = require("mongoose");
+const Http = require("http");
+const socketIo = require("socket.io");
 const jwt = require("jsonwebtoken");
 const Joi = require('joi');
 const { Op } = require('sequelize');
@@ -14,7 +15,34 @@ const { User, Cart, Goods } = require("./models");
 const authMiddleware = require("./middlewares/auth-middleware");
 
 const app = express();
+const http = Http.createServer(app); // app을 상속받아서 http 서버 확장(wrapping)
+const io = socketIo(http);
 const router = express.Router();
+
+io.on("connection",(socket)=>{ // 리스너
+    console.log("누군가 연결했어요.");
+
+    // 지금 방금 연결된 소켓에다가 보내주겠다.
+    // 모든 애들한테 보내는건 X
+    // 방금 연결한애, 연결될 때마다 보내는거
+    socket.emit("BUY_GOODS", {
+        nickname: '서버가 보내준 구매자 닉네임',
+        goodsId: 10, // 서버가 보내준 상품 데이터 고유 ID
+        goodsName: '서버가 보내준 구매자가 구매한 상품 이름',
+        date: '서버가 보내준 구매 일시'
+    });
+
+    // 클라이언트에게서 이벤트 받기
+    socket.on("BUY", (data)=>{ // BUY 이벤트 반응할 준비되었음
+        console.log("클라이언트가 구매한 데이터"
+        ,data
+        ,new Date());
+    });
+
+    socket.on("disconnect", () => {
+        console.log("누군가 연결을 끊었어요!");
+    });
+});
 
 const postUsersSchema = Joi.object({
     nickname: Joi.string().required(),
@@ -264,6 +292,6 @@ app.get('/order', (req,res) => {
 })
 
 
-app.listen(8080, () => {
+http.listen(8080, () => {
     console.log("서버가 요청을 받을 준비가 됐어요");
 });
