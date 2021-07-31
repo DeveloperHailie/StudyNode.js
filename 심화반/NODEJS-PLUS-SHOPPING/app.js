@@ -4,17 +4,14 @@ const jwt = require("jsonwebtoken");
 const Joi = require('joi');
 const { Op } = require('sequelize');
 
-const { User } = require("./models"); 
-//const Cart = require("./models/cart");
-//const Goods = require("./models/goods")
-const authMiddleware = require("./middlewares/auth-middleware");
+const cheerio = require("cheerio");
+const axios = require("axios");
+const iconv = require("iconv-lite");
+const url =
+  "http://www.yes24.com/24/Category/BestSeller";
 
-mongoose.connect("mongodb://localhost/shopping-demo", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-});
-const db = mongoose.connection;
-db.on("error", console.error.bind(console, "connection error:"));
+const { User, Cart, Goods } = require("./models"); 
+const authMiddleware = require("./middlewares/auth-middleware");
 
 const app = express();
 const router = express.Router();
@@ -112,15 +109,17 @@ router.get("/users/me", authMiddleware, async (req,res) => {
 // 내 장바구니 목록 불러오기
 router.get("/goods/cart", authMiddleware, async (req, res) => {
     const { userId } = res.locals.user;
-    const myCart = await Cart.find({
-        userId
-    }).exec();
+    const myCart = await Cart.findAll({
+        where: { 
+            userId 
+        }
+    });
     
     // 최종 결과 : {"cart":[{"quantity":4, "goods":{}}, {"quantity":4, "goods":{}}]}
    
     let cartList = [];
     for(let i of myCart){
-        let good = await Goods.findOne( {goodsId:i.goodsId} ).exec();
+        let good = await Goods.findOne({ where: {goodsId:i.goodsId} });
         cartList.push(
             {
                 "quantity": i.quantity,
@@ -143,20 +142,19 @@ router.put("/goods/:goodsId/cart", authMiddleware, async (req, res) => {
     const { quantity } = req.body;
     
     const myGoods = await Cart.findOne({ 
-        userId,
-        goodsId 
-    }).exec();
+        where: {userId,
+        goodsId }
+    });
     
     if(myGoods){
         myGoods.quantity = quantity;
         await myGoods.save();
     }else{
-        const cart = new Cart({
+        Cart.create({
             userId,
             goodsId,
             quantity,
           });
-        await cart.save();
     }
 
     res.send({});
@@ -167,9 +165,9 @@ router.delete("/goods/:goodsId/cart", authMiddleware, async (req, res) => {
     const { userId } = res.locals.user;
     const { goodsId } = req.params;
     
-    const myGood = await Cart.findOne({ userId, goodsId }).exec();
+    const myGood = await Cart.findOne({ where: { userId, goodsId } });
     if(myGood){
-        await Cart.deleteOne(myGood);
+        await myGood.destroy();
     }
 
     res.send({});
@@ -183,21 +181,18 @@ router.delete("/goods/:goodsId/cart", authMiddleware, async (req, res) => {
  */
 router.get("/goods", authMiddleware, async (req, res) => {
     const { category } = req.query;
+    const goods = await Goods.findAll({
+        order: [["goodsId", "DESC"]],
+        where: category ? { category } : undefined,
+    });
 
-    let goods;
-    if(!category){ // 전체 조회
-        goods = await Goods.find({}).sort("-goodsId").exec();
-    }else{ // 특정 category 조회
-        goods = await Goods.find({ category }).sort("-goodsId").exec();
-    }
-
-    res.send({goods:goods});
+    res.send({ goods });
 });
 
 // 상품 하나 가져오기, param
 router.get("/goods/:goodsId", authMiddleware, async (req, res) => {
     const { goodsId } = req.params;
-    const goods = await Goods.findOne({ goodsId }).exec();
+    const goods = await Goods.findByPk(goodsId);
     // find는 배열 반환 
 
     if(!goods){
@@ -210,6 +205,47 @@ router.get("/goods/:goodsId", authMiddleware, async (req, res) => {
         goods
     });
 });
+
+// 상품 추가 
+router.get("/goods/add/crawling", async (req, res) => {
+    try {
+      await axios({
+        url: url,
+        method: "GET",
+        responseType: "arraybuffer",
+      }).then(async (html) => {
+        const content = iconv.decode(html.data, "EUC-KR").toString();
+        
+        const $ = cheerio.load(content);
+        const list = $("ol li");
+        await list.each(async (i, tag) => {
+          let desc = $(tag).find("p.copy a").text()
+          let image = $(tag).find("p.image a img").attr("src")
+          let title = $(tag).find("p.image a img").attr("alt")
+          let price = $(tag).find("p.price strong").text()
+  
+          if(desc && image && title && price){
+            price = price.slice(0,-1).replace(/(,)/g, "")
+            let date = new Date()
+            let goodsId = date.getTime()
+            
+            // await User.create({ email, nickname, password });
+            await Goods.create({
+              name:title,
+              thumbnailUrl:image,
+              category:"도서",
+              price:price
+            })
+          }
+        })
+      });
+      res.send({ result: "success", message: "크롤링이 완료 되었습니다." });
+  
+    } catch (error) {
+      console.log(error)
+      res.send({ result: "fail", message: "크롤링에 문제가 발생했습니다", error: error });
+    }
+  });
 
 
 app.use("/api", express.urlencoded({ extended: false }), router);
