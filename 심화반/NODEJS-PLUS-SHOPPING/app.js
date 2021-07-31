@@ -23,19 +23,19 @@ const router = express.Router();
 let socketIdMap = new hashmap.HashMap();
 io.on("connection",(socket)=>{ // 리스너
 
-    let thisId = "";
     let thisPage = "";
-    console.log(thisId, "가 연결했어요.");
+    console.log(socket.id, "가 연결했어요.");
 
     socket.on("CHANGED_PAGE", (data)=>{
-        thisId = socket.id;
         thisPage = data;
 
         let idList = socketIdMap.get(thisPage)? socketIdMap.get(thisPage) : [];
-        idList.push(thisId);
+        idList.push(socket.id);
         socketIdMap.set(thisPage, idList);
 
-        io.emit("SAME_PAGE_VIEWER_COUNT", socketIdMap.get(thisPage).length);
+        for( socketId of idList ){ // 현재 url에 접속해 있는 사람들에게만 전송
+            io.to(socketId).emit("SAME_PAGE_VIEWER_COUNT", socketIdMap.get(thisPage).length);
+        }
     });
 
 
@@ -56,16 +56,19 @@ io.on("connection",(socket)=>{ // 리스너
     });
 
     socket.on("disconnect", (data) => {
-        if(thisPage != ""){
+        if(thisPage != ""){ // 현재 접속 끊는 page가 상세 page이면
             let idList = socketIdMap.get(thisPage);
-            const idx = idList.indexOf(thisId);
+            const idx = idList.indexOf(socket.id);
             idList.splice(idx,1);
             socketIdMap.set(data, idList);
-            
-            socket.broadcast.emit("SAME_PAGE_VIEWER_COUNT", socketIdMap.get(thisPage).length);
+
+            for( socketId of idList ){ // 현재 url에 접속해 있는 사람들에게만 전송
+                io.to(socketId).emit("SAME_PAGE_VIEWER_COUNT", socketIdMap.get(thisPage).length);
+            }
+
             thisPage = "";
         }
-        console.log(thisId, "가 연결을 끊었어요!");
+        console.log(socket.id, "가 연결을 끊었어요!");
     });
 });
 
