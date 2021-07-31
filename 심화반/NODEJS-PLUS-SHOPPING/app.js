@@ -4,6 +4,7 @@ const socketIo = require("socket.io");
 const jwt = require("jsonwebtoken");
 const Joi = require('joi');
 const { Op } = require('sequelize');
+const hashmap = require('hashmap');
 
 const cheerio = require("cheerio");
 const axios = require("axios");
@@ -19,28 +20,52 @@ const http = Http.createServer(app); // app을 상속받아서 http 서버 확�
 const io = socketIo(http);
 const router = express.Router();
 
+let socketIdMap = new hashmap.HashMap();
 io.on("connection",(socket)=>{ // 리스너
-    console.log("누군가 연결했어요.");
 
-    // 지금 방금 연결된 소켓에다가 보내주겠다.
-    // 모든 애들한테 보내는건 X
-    // 방금 연결한애, 연결될 때마다 보내는거
-    socket.emit("BUY_GOODS", {
-        nickname: '서버가 보내준 구매자 닉네임',
-        goodsId: 10, // 서버가 보내준 상품 데이터 고유 ID
-        goodsName: '서버가 보내준 구매자가 구매한 상품 이름',
-        date: '서버가 보내준 구매 일시'
+    let thisId = "";
+    let thisPage = "";
+    console.log(thisId, "가 연결했어요.");
+
+    socket.on("CHANGED_PAGE", (data)=>{
+        thisId = socket.id;
+        thisPage = data;
+
+        let idList = socketIdMap.get(thisPage)? socketIdMap.get(thisPage) : [];
+        idList.push(thisId);
+        socketIdMap.set(thisPage, idList);
+
+        io.emit("SAME_PAGE_VIEWER_COUNT", socketIdMap.get(thisPage).length);
     });
+
 
     // 클라이언트에게서 이벤트 받기
-    socket.on("BUY", (data)=>{ // BUY 이벤트 반응할 준비되었음
-        console.log("클라이언트가 구매한 데이터"
-        ,data
-        ,new Date());
+    socket.on("BUY", (data)=>{ 
+        
+        // 필요한 데이터
+        const payload = {
+            nickname: data.nickname,
+            goodsId: data.goodsId,
+            goodsName: data.goodsName,
+            date: new Date().toISOString(),
+        };
+        
+        console.log("클라이언트가 구매한 데이터" ,data, new Date());
+
+        socket.broadcast.emit("BUY_GOODS", payload);
     });
 
-    socket.on("disconnect", () => {
-        console.log("누군가 연결을 끊었어요!");
+    socket.on("disconnect", (data) => {
+        if(thisPage != ""){
+            let idList = socketIdMap.get(thisPage);
+            const idx = idList.indexOf(thisId);
+            idList.splice(idx,1);
+            socketIdMap.set(data, idList);
+            
+            socket.broadcast.emit("SAME_PAGE_VIEWER_COUNT", socketIdMap.get(thisPage).length);
+            thisPage = "";
+        }
+        console.log(thisId, "가 연결을 끊었어요!");
     });
 });
 
