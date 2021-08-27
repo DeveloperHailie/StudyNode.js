@@ -4,7 +4,7 @@ const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
 const { Op } = require('sequelize');
-const hashmap = require('hashmap');
+
 
 const cheerio = require('cheerio');
 const axios = require('axios');
@@ -16,102 +16,8 @@ const authMiddleware = require('./middlewares/auth-middleware');
 
 const app = express();
 const http = Http.createServer(app); // app을 상속받아서 http 서버 확장(wrapping)
-const io = socketIo(http);
 const router = express.Router();
 
-let socketIdMap = new hashmap.HashMap();
-
-function initSocket(sock) {
-    console.log('새로운 소켓이 연결됐어요!');
-
-    // 특정 이벤트가 전달됐는지 감지할 때 사용될 함수
-    function watchEvent(event, func) {
-        sock.on(event, func);
-    }
-
-    // 연결된 모든 클라이언트에 데이터를 보낼때 사용될 함수
-    function notifyEveryone(event, data) {
-        io.emit(event, data);
-    }
-
-    return {
-        watchBuying: () => {
-            watchEvent('BUY', (data) => {
-                const emitData = {
-                    ...data,
-                    date: new Date().toISOString(),
-                };
-                notifyEveryone('BUY_GOODS', emitData);
-            });
-        },
-
-        watchByebye: () => {
-            watchEvent('disconnect', () => {
-                console.log(sock.id, '연결이 끊어졌어요!');
-            });
-        },
-    };
-    /* 기존 코드
-    // 클라이언트에게서 이벤트 받기
-    socket.on('BUY', (data) => {
-        // 필요한 데이터
-        const payload = {
-            nickname: data.nickname,
-            goodsId: data.goodsId,
-            goodsName: data.goodsName,
-            date: new Date().toISOString(),
-        };
-
-        console.log('클라이언트가 구매한 데이터', data, new Date());
-
-        socket.broadcast.emit('BUY_GOODS', payload);
-    });
-
-    socket.on('disconnect', (data) => {
-        if (thisPage != '') {
-            // 현재 접속 끊는 page가 상세 page이면
-            let idList = socketIdMap.get(thisPage);
-            const idx = idList.indexOf(socket.id);
-            idList.splice(idx, 1);
-            socketIdMap.set(data, idList);
-
-            for (socketId of idList) {
-                // 현재 url에 접속해 있는 사람들에게만 전송
-                io.to(socketId).emit(
-                    'SAME_PAGE_VIEWER_COUNT',
-                    socketIdMap.get(thisPage).length
-                );
-            }
-
-            thisPage = '';
-        }
-        console.log(socket.id, '가 연결을 끊었어요!');
-    });
-    */
-}
-io.on('connection', (socket) => {
-    const { watchBuying, watchByebye } = initSocket(socket);
-
-    watchBuying(); // BUY 이벤트
-    watchByebye(); // disconnect 이벤트
-
-    socket.on('CHANGED_PAGE', (data) => {
-        thisPage = data;
-
-        let idList = socketIdMap.get(thisPage) ? socketIdMap.get(thisPage) : [];
-        idList.push(socket.id);
-        socketIdMap.set(thisPage, idList);
-
-        for (socketId of idList) {
-            // 현재 url에 접속해 있는 사람들에게만 전송
-            io.to(socketId).emit(
-                'SAME_PAGE_VIEWER_COUNT',
-                socketIdMap.get(thisPage).length
-            );
-        }
-    });
-
-});
 
 const postUsersSchema = Joi.object({
     nickname: Joi.string().required(),
@@ -361,6 +267,8 @@ app.get('/order', (req, res) => {
     res.render('order');
 });
 
-http.listen(8080, () => {
-    console.log('서버가 요청을 받을 준비가 됐어요');
-});
+// http.listen(8080, () => {
+//     console.log('서버가 요청을 받을 준비가 됐어요');
+// });
+
+module.exports = http;
