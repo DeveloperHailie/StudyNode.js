@@ -1,6 +1,6 @@
-const express = require('express')
-const app = express()
-const port = 3000
+const express = require('express');
+const app = express();
+const port = 3000;
 
 // 처음에 들어오면 접속 및 연결, 스키마까지
 const connect = require('./schemas');
@@ -10,9 +10,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(express.static('public'));
 
-const goodsRouter = require("./routers/goods");
-app.use("/api", [goodsRouter]);
-
+const goodsRouter = require('./routers/goods');
+app.use('/api', [goodsRouter]);
 
 app.use((req, res, next) => {
     console.log(req);
@@ -24,14 +23,15 @@ app.set('view engine', 'ejs');
 app.get('/test', (req, res) => {
     let name = req.query.name;
     res.render('test', { name });
-})
+});
 
 app.get('/hi', (req, res) => {
-    res.send('Hi. This is express router')
+    res.send('Hi. This is express router');
 });
 
 app.get('/', (req, res) => {
-    res.send('<!DOCTYPE html>\
+    res.send(
+        '<!DOCTYPE html>\
     <html lang="en">\
     <head>\
         <meta charset="UTF-8">\
@@ -44,18 +44,18 @@ app.get('/', (req, res) => {
         <a href="/hi">Say Hi!</a>\
         <a href="/sample.png">sample.png</a>\
     </body>\
-    </html>')
+    </html>'
+    );
 });
 
 app.get('/home', (req, res) => {
     res.render('index');
-})
+});
 
 app.get('/detail', (req, res) => {
     res.render('detail');
-})
-
+});
 
 app.listen(port, () => {
-    console.log(`listening at http://localhost:${port}`)
-})
+    console.log(`listening at http://localhost:${port}`);
+});

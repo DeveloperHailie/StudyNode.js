@@ -1,19 +1,18 @@
-const express = require("express");
-const Http = require("http");
-const socketIo = require("socket.io");
-const jwt = require("jsonwebtoken");
+const express = require('express');
+const Http = require('http');
+const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
 const Joi = require('joi');
 const { Op } = require('sequelize');
 const hashmap = require('hashmap');
 
-const cheerio = require("cheerio");
-const axios = require("axios");
-const iconv = require("iconv-lite");
-const url =
-  "http://www.yes24.com/24/Category/BestSeller";
+const cheerio = require('cheerio');
+const axios = require('axios');
+const iconv = require('iconv-lite');
+const url = 'http://www.yes24.com/24/Category/BestSeller';
 
-const { User, Cart, Goods } = require("./models"); 
-const authMiddleware = require("./middlewares/auth-middleware");
+const { User, Cart, Goods } = require('./models');
+const authMiddleware = require('./middlewares/auth-middleware');
 
 const app = express();
 const http = Http.createServer(app); // app을 상속받아서 http 서버 확장(wrapping)
@@ -21,27 +20,40 @@ const io = socketIo(http);
 const router = express.Router();
 
 let socketIdMap = new hashmap.HashMap();
-io.on("connection",(socket)=>{ // 리스너
 
-    let thisPage = "";
-    console.log(socket.id, "가 연결했어요.");
+function initSocket(sock) {
+    console.log('새로운 소켓이 연결됐어요!');
 
-    socket.on("CHANGED_PAGE", (data)=>{
-        thisPage = data;
+    // 특정 이벤트가 전달됐는지 감지할 때 사용될 함수
+    function watchEvent(event, func) {
+        sock.on(event, func);
+    }
 
-        let idList = socketIdMap.get(thisPage)? socketIdMap.get(thisPage) : [];
-        idList.push(socket.id);
-        socketIdMap.set(thisPage, idList);
+    // 연결된 모든 클라이언트에 데이터를 보낼때 사용될 함수
+    function notifyEveryone(event, data) {
+        io.emit(event, data);
+    }
 
-        for( socketId of idList ){ // 현재 url에 접속해 있는 사람들에게만 전송
-            io.to(socketId).emit("SAME_PAGE_VIEWER_COUNT", socketIdMap.get(thisPage).length);
-        }
-    });
+    return {
+        watchBuying: () => {
+            watchEvent('BUY', (data) => {
+                const emitData = {
+                    ...data,
+                    date: new Date().toISOString(),
+                };
+                notifyEveryone('BUY_GOODS', emitData);
+            });
+        },
 
-
+        watchByebye: () => {
+            watchEvent('disconnect', () => {
+                console.log(sock.id, '연결이 끊어졌어요!');
+            });
+        },
+    };
+    /* 기존 코드
     // 클라이언트에게서 이벤트 받기
-    socket.on("BUY", (data)=>{ 
-        
+    socket.on('BUY', (data) => {
         // 필요한 데이터
         const payload = {
             nickname: data.nickname,
@@ -49,74 +61,103 @@ io.on("connection",(socket)=>{ // 리스너
             goodsName: data.goodsName,
             date: new Date().toISOString(),
         };
-        
-        console.log("클라이언트가 구매한 데이터" ,data, new Date());
 
-        socket.broadcast.emit("BUY_GOODS", payload);
+        console.log('클라이언트가 구매한 데이터', data, new Date());
+
+        socket.broadcast.emit('BUY_GOODS', payload);
     });
 
-    socket.on("disconnect", (data) => {
-        if(thisPage != ""){ // 현재 접속 끊는 page가 상세 page이면
+    socket.on('disconnect', (data) => {
+        if (thisPage != '') {
+            // 현재 접속 끊는 page가 상세 page이면
             let idList = socketIdMap.get(thisPage);
             const idx = idList.indexOf(socket.id);
-            idList.splice(idx,1);
+            idList.splice(idx, 1);
             socketIdMap.set(data, idList);
 
-            for( socketId of idList ){ // 현재 url에 접속해 있는 사람들에게만 전송
-                io.to(socketId).emit("SAME_PAGE_VIEWER_COUNT", socketIdMap.get(thisPage).length);
+            for (socketId of idList) {
+                // 현재 url에 접속해 있는 사람들에게만 전송
+                io.to(socketId).emit(
+                    'SAME_PAGE_VIEWER_COUNT',
+                    socketIdMap.get(thisPage).length
+                );
             }
 
-            thisPage = "";
+            thisPage = '';
         }
-        console.log(socket.id, "가 연결을 끊었어요!");
+        console.log(socket.id, '가 연결을 끊었어요!');
     });
+    */
+}
+io.on('connection', (socket) => {
+    const { watchBuying, watchByebye } = initSocket(socket);
+
+    watchBuying(); // BUY 이벤트
+    watchByebye(); // disconnect 이벤트
+
+    socket.on('CHANGED_PAGE', (data) => {
+        thisPage = data;
+
+        let idList = socketIdMap.get(thisPage) ? socketIdMap.get(thisPage) : [];
+        idList.push(socket.id);
+        socketIdMap.set(thisPage, idList);
+
+        for (socketId of idList) {
+            // 현재 url에 접속해 있는 사람들에게만 전송
+            io.to(socketId).emit(
+                'SAME_PAGE_VIEWER_COUNT',
+                socketIdMap.get(thisPage).length
+            );
+        }
+    });
+
 });
 
 const postUsersSchema = Joi.object({
     nickname: Joi.string().required(),
     email: Joi.string().email().required(),
-    password: Joi.string().required(), 
-    confirmPassword: Joi.string().required() 
+    password: Joi.string().required(),
+    confirmPassword: Joi.string().required(),
 });
 // 회원가입
-router.post("/users", async (req, res) => {
+router.post('/users', async (req, res) => {
     try {
-        const {
-            nickname, email, password, confirmPassword
-        } = await postUsersSchema.validateAsync(req.body);
+        const { nickname, email, password, confirmPassword } =
+            await postUsersSchema.validateAsync(req.body);
 
-        if (password !== confirmPassword) { //validation
-            res.status(400).send({ // Bad request
-                errorMessage: '패스워드가 패스워드 확인란과 동일하지 않습니다.'
+        if (password !== confirmPassword) {
+            //validation
+            res.status(400).send({
+                // Bad request
+                errorMessage: '패스워드가 패스워드 확인란과 동일하지 않습니다.',
             });
             return;
-        };
+        }
 
-        const existUsers = await User.findAll({ //validation
+        const existUsers = await User.findAll({
+            //validation
             // email이나 nickname에 맞는 데이터가 있는지
-            where:{
-                [Op.or] : [{ nickname }, { email }],
+            where: {
+                [Op.or]: [{ nickname }, { email }],
             },
         });
         if (existUsers.length) {
             res.status(400).send({
-                errorMessage: '이미 가입된 이메일 또는 닉네임이 있습니다.'
+                errorMessage: '이미 가입된 이메일 또는 닉네임이 있습니다.',
             });
             return;
         }
 
         await User.create({ email, nickname, password });
-    
+
         // 사용자 리소스 생성
         res.status(201).send({});
-
     } catch (err) {
         console.log(err);
         res.status(400).send({
-            errorMessage: "요청한 데이터의 형식이 올바르지 않습니다."
+            errorMessage: '요청한 데이터의 형식이 올바르지 않습니다.',
         });
     }
-
 });
 
 const postAuthSchema = Joi.object({
@@ -124,105 +165,103 @@ const postAuthSchema = Joi.object({
     password: Joi.string().required(),
 });
 // 로그인
-router.post("/auth", async (req,res) => {
+router.post('/auth', async (req, res) => {
     try {
         // const { email, password } = req.body;
-        const { email, password } = await postAuthSchema.validateAsync(req.body);
+        const { email, password } = await postAuthSchema.validateAsync(
+            req.body
+        );
         const user = await User.findOne({ where: { email, password } });
 
         if (!user) {
             //401 인증 실패
             res.status(401).send({
-                errorMessage: '이메일 또는 패스워드가 잘못되었습니다.'
+                errorMessage: '이메일 또는 패스워드가 잘못되었습니다.',
             });
             return;
         }
 
-        const token = jwt.sign({ userId: user.userId }, "my-secret-key");
+        const token = jwt.sign({ userId: user.userId }, 'my-secret-key');
+        console.log('**********token: ', token);
         res.send({
-            token
+            token,
         });
     } catch (err) {
         console.log(err);
         res.status(400).send({
-            errorMessage: "요청한 데이터 형식이 올바르지 않습니다."
+            errorMessage: '요청한 데이터 형식이 올바르지 않습니다.',
         });
     }
-    
 });
 
 // 본인 정보 인증
-router.get("/users/me", authMiddleware, async (req,res) => {
-   const { user } = res.locals;
+router.get('/users/me', authMiddleware, async (req, res) => {
+    const { user } = res.locals;
     res.send({
         user: {
             email: user.email,
-            nickname: user.nickname
-        }
+            nickname: user.nickname,
+        },
     });
 });
 
 // 내 장바구니 목록 불러오기
-router.get("/goods/cart", authMiddleware, async (req, res) => {
+router.get('/goods/cart', authMiddleware, async (req, res) => {
     const { userId } = res.locals.user;
     const myCart = await Cart.findAll({
-        where: { 
-            userId 
-        }
+        where: {
+            userId,
+        },
     });
-    
+
     // 최종 결과 : {"cart":[{"quantity":4, "goods":{}}, {"quantity":4, "goods":{}}]}
-   
+
     let cartList = [];
-    for(let i of myCart){
-        let good = await Goods.findOne({ where: {goodsId:i.goodsId} });
-        cartList.push(
-            {
-                "quantity": i.quantity,
-                "goods": good
-            }
-        );
+    for (let i of myCart) {
+        let good = await Goods.findOne({ where: { goodsId: i.goodsId } });
+        cartList.push({
+            quantity: i.quantity,
+            goods: good,
+        });
     }
 
-    res.send({ 
-        "cart": cartList
+    res.send({
+        cart: cartList,
     });
 });
 
-
 // 장바구니에 상품 담기.
 // 장바구니에 상품이 이미 담겨있으면 갯수만 수정
-router.put("/goods/:goodsId/cart", authMiddleware, async (req, res) => {
+router.put('/goods/:goodsId/cart', authMiddleware, async (req, res) => {
     const { userId } = res.locals.user;
     const { goodsId } = req.params;
     const { quantity } = req.body;
-    
-    const myGoods = await Cart.findOne({ 
-        where: {userId,
-        goodsId }
+
+    const myGoods = await Cart.findOne({
+        where: { userId, goodsId },
     });
-    
-    if(myGoods){
+
+    if (myGoods) {
         myGoods.quantity = quantity;
         await myGoods.save();
-    }else{
+    } else {
         Cart.create({
             userId,
             goodsId,
             quantity,
-          });
+        });
     }
 
     res.send({});
 });
 
 // 장바구니 항목 삭제
-router.delete("/goods/:goodsId/cart", authMiddleware, async (req, res) => {
+router.delete('/goods/:goodsId/cart', authMiddleware, async (req, res) => {
     const { userId } = res.locals.user;
     const { goodsId } = req.params;
-    
+
     const myGood = await Cart.findOne({ where: { userId, goodsId } });
-    if(myGood){
+    if (myGood) {
         await myGood.destroy();
     }
 
@@ -230,15 +269,15 @@ router.delete("/goods/:goodsId/cart", authMiddleware, async (req, res) => {
 });
 
 // 모든 상품 가져오기, query
- /*
+/*
  * /api/goods
  * /api/goods?category=drink
  * /api/goods?category=drink2
  */
-router.get("/goods", authMiddleware, async (req, res) => {
+router.get('/goods', authMiddleware, async (req, res) => {
     const { category } = req.query;
     const goods = await Goods.findAll({
-        order: [["goodsId", "DESC"]],
+        order: [['goodsId', 'DESC']],
         where: category ? { category } : undefined,
     });
 
@@ -246,80 +285,82 @@ router.get("/goods", authMiddleware, async (req, res) => {
 });
 
 // 상품 하나 가져오기, param
-router.get("/goods/:goodsId", authMiddleware, async (req, res) => {
+router.get('/goods/:goodsId', authMiddleware, async (req, res) => {
     const { goodsId } = req.params;
     const goods = await Goods.findByPk(goodsId);
-    // find는 배열 반환 
+    // find는 배열 반환
 
-    if(!goods){
-        res.status(400).send({ // Bad request
-            errorMessage: '존재하지 않는 상품입니다.'
+    if (!goods) {
+        res.status(400).send({
+            // Bad request
+            errorMessage: '존재하지 않는 상품입니다.',
         });
     }
-    
+
     res.send({
-        goods
+        goods,
     });
 });
 
-// 상품 추가 
-router.get("/goods/add/crawling", async (req, res) => {
+// 상품 추가
+router.get('/goods/add/crawling', async (req, res) => {
     try {
-      await axios({
-        url: url,
-        method: "GET",
-        responseType: "arraybuffer",
-      }).then(async (html) => {
-        const content = iconv.decode(html.data, "EUC-KR").toString();
-        
-        const $ = cheerio.load(content);
-        const list = $("ol li");
-        await list.each(async (i, tag) => {
-          let desc = $(tag).find("p.copy a").text()
-          let image = $(tag).find("p.image a img").attr("src")
-          let title = $(tag).find("p.image a img").attr("alt")
-          let price = $(tag).find("p.price strong").text()
-  
-          if(desc && image && title && price){
-            price = price.slice(0,-1).replace(/(,)/g, "")
-            let date = new Date()
-            let goodsId = date.getTime()
-            
-            // await User.create({ email, nickname, password });
-            await Goods.create({
-              name:title,
-              thumbnailUrl:image,
-              category:"도서",
-              price:price
-            })
-          }
-        })
-      });
-      res.send({ result: "success", message: "크롤링이 완료 되었습니다." });
-  
+        await axios({
+            url: url,
+            method: 'GET',
+            responseType: 'arraybuffer',
+        }).then(async (html) => {
+            const content = iconv.decode(html.data, 'EUC-KR').toString();
+
+            const $ = cheerio.load(content);
+            const list = $('ol li');
+            await list.each(async (i, tag) => {
+                let desc = $(tag).find('p.copy a').text();
+                let image = $(tag).find('p.image a img').attr('src');
+                let title = $(tag).find('p.image a img').attr('alt');
+                let price = $(tag).find('p.price strong').text();
+
+                if (desc && image && title && price) {
+                    price = price.slice(0, -1).replace(/(,)/g, '');
+                    let date = new Date();
+                    let goodsId = date.getTime();
+
+                    // await User.create({ email, nickname, password });
+                    await Goods.create({
+                        name: title,
+                        thumbnailUrl: image,
+                        category: '도서',
+                        price: price,
+                    });
+                }
+            });
+        });
+        res.send({ result: 'success', message: '크롤링이 완료 되었습니다.' });
     } catch (error) {
-      console.log(error)
-      res.send({ result: "fail", message: "크롤링에 문제가 발생했습니다", error: error });
+        console.log(error);
+        res.send({
+            result: 'fail',
+            message: '크롤링에 문제가 발생했습니다',
+            error: error,
+        });
     }
-  });
+});
 
-
-app.use("/api", express.urlencoded({ extended: false }), router);
-app.use(express.static("assets"));
+app.use('/api', express.urlencoded({ extended: false }), router);
+app.use(express.static('assets'));
 
 app.get('/detail', (req, res) => {
     res.render('detail');
-})
+});
 
-app.get('/cart', (req,res) => {
+app.get('/cart', (req, res) => {
     res.render('cart');
-})
+});
 
-app.get('/order', (req,res) => {
+app.get('/order', (req, res) => {
     res.render('order');
-})
-
+});
 
 http.listen(8080, () => {
-    console.log("서버가 요청을 받을 준비가 됐어요");
+    console.log('서버가 요청을 받을 준비가 됐어요');
 });

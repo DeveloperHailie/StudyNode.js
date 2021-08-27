@@ -15,29 +15,28 @@ module.exports = (req, res, next) => {
     */
 
     const [tokenType, tokenValue] = authorization.split(' ');
-    
+
     if (tokenType !== 'Bearer') {
         res.status(401).send({
-            errorMessage: '로그인 후 사용하세요'
+            errorMessage: '로그인 후 사용하세요',
         });
         return; //next가 호출이 안되게
     }
 
     try {
-        const { userId } = jwt.verify(tokenValue, "my-secret-key");
-        
+        const { userId } = jwt.verify(tokenValue, 'my-secret-key');
+
         // async 함수 아니므로 await 사용 불가
         User.findById(userId)
             .exec()
             .then((user) => {
-            
                 if (!user) {
                     res.status(401).send({
-                        errorMessage: '로그인 후 사용하세요'
+                        errorMessage: '로그인 후 사용하세요',
                     });
                     return;
                 }
-            
+
                 // 이 미들웨어를 사용하는 라우터에서 굳이 db에서 사용자 정보 가져오지 않게 할 수 있도록
                 // express가 제공하는 안전한 변수에 담아주고 언제나 꺼내서 사용할 수 있게 작성
                 // 정상적으로 응답 값 보내고 나면 소멸하므로 해당 데이터가 어딘가에 남아있을 걱정할 필요 없다.
@@ -48,10 +47,9 @@ module.exports = (req, res, next) => {
                 // next 없으면 그 뒤에 있는 미들웨어까지 연결이 안되는 형식이므로 주의
                 next();
             });
-        
     } catch (error) {
         res.status(401).send({
-            errorMessage: '로그인 후 사용하세요'
+            errorMessage: '로그인 후 사용하세요',
         });
         return;
     }
