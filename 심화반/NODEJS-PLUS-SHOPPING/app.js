@@ -4,6 +4,7 @@ const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
 const { Op } = require('sequelize');
+var path = require('path');
 
 
 const cheerio = require('cheerio');
@@ -253,7 +254,9 @@ router.get('/goods/add/crawling', async (req, res) => {
 });
 
 app.use('/api', express.urlencoded({ extended: false }), router);
-app.use(express.static('assets'));
+
+
+app.use(express.static(path.join(__dirname,'assets')));
 
 app.get('/detail', (req, res) => {
     res.render('detail');
@@ -267,8 +270,10 @@ app.get('/order', (req, res) => {
     res.render('order');
 });
 
-// http.listen(8080, () => {
-//     console.log('서버가 요청을 받을 준비가 됐어요');
-// });
+app.get('/test', (req, res) => {
+    res.json({
+        message: "message",
+    });
+});
 
 module.exports = http;
