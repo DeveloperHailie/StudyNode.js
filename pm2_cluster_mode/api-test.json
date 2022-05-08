@@ -1,0 +1,58 @@
+{
+    "config": {
+        "target": "http://localhost:3000",
+        "phases": [
+            {
+                "duration": 60,
+                "arrivalRate": 30
+            }
+        ],
+        "defaults":{
+            "headers": {
+                "User-Agent": "Artillery"
+            }
+        },
+        "payload": {
+            "path": "./data.csv",
+            "fields": ["id1","id2"]
+        }
+    },
+    "scenarios":[
+        {
+            "flow":[
+                {
+                    "get":{
+                        "url": "/"
+                    }
+                },
+                {
+                    "post":{
+                        "url": "/test",
+                        "json":{
+                            "id": "{{id1}}"
+                        }
+                    }
+                },
+                {
+                    "post":{
+                        "url": "/finish",
+                        "json":{
+                            "id": "{{id2}}"
+                        }
+                    }
+                },
+                {
+                    "get":{
+                        "url": "/map"
+                    }
+                },
+                {
+                    "get":{
+                        "url": "/map"
+                    }
+                }
+            ]
+        }
+    ]
+
+}

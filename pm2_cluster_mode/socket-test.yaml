@@ -1,0 +1,26 @@
+config:
+  target: "http://localhost:3000"
+  phases: # 시나리오 10초간 실행, 1초당 실행할 횟수 => 총 40명의 더미 클라이언트 생성
+    - duration: 10
+      arrivalRate: 6
+scenarios:
+  - name: "connection-message-join-send"
+    engine: "socketio"
+    flow:
+      - emit:
+          channel: "message"
+          data:
+            "roomId": 0
+      - emit:
+            channel: "join room"
+            data:
+              "roomId": 0
+      - think: 1
+      - loop:
+        - emit:
+              channel: "send room"
+              data:
+                  "roomId": 0
+        - think: 1
+      - think: 2
+    
