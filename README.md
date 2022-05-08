@@ -26,10 +26,10 @@ https://developerhailie.notion.site/Node-js-6e962a2e58a64ab1ba7894db1608efad
 - artillery를 이용한 스트레스 테스트 및 Cluster mode 테스트
 
 <참고><br>
-https://pm2.keymetrics.io/docs/usage/pm2-api/
-https://github.com/socketio/socket.io-redis-adapter
-https://socket.io/docs/v4/redis-adapter/
-https://cloud-oky.tistory.com/395
-https://hayden-archive.tistory.com/429
-https://inpa.tistory.com/entry/JEST-%F0%9F%93%9A-%EB%B6%80%ED%95%98-%ED%85%8C%EC%8A%A4%ED%8A%B8-Stress-Test
-https://blog.outsider.ne.kr/1238
+https://pm2.keymetrics.io/docs/usage/pm2-api/<br>
+https://github.com/socketio/socket.io-redis-adapter<br>
+https://socket.io/docs/v4/redis-adapter/<br>
+https://cloud-oky.tistory.com/395<br>
+https://hayden-archive.tistory.com/429<br>
+https://inpa.tistory.com/entry/JEST-%F0%9F%93%9A-%EB%B6%80%ED%95%98-%ED%85%8C%EC%8A%A4%ED%8A%B8-Stress-Test<br>
+https://blog.outsider.ne.kr/1238<br>
