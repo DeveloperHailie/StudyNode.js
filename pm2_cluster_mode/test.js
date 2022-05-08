@@ -42,7 +42,7 @@ app.get('/startTimer/:id', (req, res) => {
         {
             sendProcessInfo: {
                 pid: process.pid,
-                instanceId: process.NODE_APP_INSTANCE,
+                instanceId: process.env.NODE_APP_INSTANCE,
             },
             timerIdx: Number(id),
         },
@@ -59,7 +59,7 @@ app.get('/finishTimer/:id', (req, res) => {
         {
             sendProcessInfo: {
                 pid: process.pid,
-                instanceId: process.NODE_APP_INSTANCE,
+                instanceId: process.env.NODE_APP_INSTANCE,
             },
             timerIdx: Number(id),
         },
@@ -95,11 +95,6 @@ const resolvePromise = async (id) => {
     console.log('[resolvePromise]', id);
 };
 
-const getProcessZeroPid = () => {
-    const pid = fs.readFileSync('process_pid.txt', 'utf8');
-    return Number(pid);
-};
-
 process.on('message', function (message) {
     if (message.topic == 'start timer' || message.topic == 'test') {
       makePromise(message.data.timerIdx);
@@ -112,9 +107,6 @@ process.on('message', function (message) {
 
 server.listen(port, () => {
     console.log(`listening at http://localhost:${port}`);
-    if (process.env.pm_id == 0) {
-        fs.writeFileSync('process_pid.txt', `${process.pid}`);
-    }
 });
 
 const sendMessageToProcess = (processId, data, topic) => {
