@@ -22,7 +22,7 @@ https://developerhailie.notion.site/Node-js-6e962a2e58a64ab1ba7894db1608efad
 [pm2_cluster_mode] holly-molly 개선을 위한 개발 연습
 
 <b>PM2 Cluster mode 사용을 위한 연습</b>
-- 기존의 타이머 기능과 소켓(룸) 기능 이용을 위한 코드 변경<br>
+- 기존([홀리몰리 웹게임](https://github.com/DeveloperHailie/holly-molly))의 타이머 기능과 소켓(룸) 기능 이용을 위한 코드 변경<br>
 - artillery를 이용한 스트레스 테스트 및 Cluster mode 테스트
 
 <참고><br>
