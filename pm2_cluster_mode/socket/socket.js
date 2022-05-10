@@ -12,9 +12,9 @@ const socketConfig = {
 
 const pubClient = createClient({ url: "redis://localhost:6379" });
 pubClient.on('connect', () => console.log('Connected to pubClient!'));
+pubClient.connect();
 const subClient = pubClient.duplicate();
 subClient.on('connect', () => console.log('Connected to subClient!'));
-pubClient.connect();
 subClient.connect();
 
 module.exports = (server, app) => {
@@ -26,7 +26,6 @@ module.exports = (server, app) => {
             io.emit('message',{process:process.pid, data}); //모두에게 메시지 전송
         });
         socket.on('send room',(data)=>{
-            console.log(process.pid, "send room", data.roomId);
             io.to(data.roomId).emit("send room",{process:process.pid}); //roomId방에 메시지 전송
         });
         socket.on('join room',(data)=>{
