@@ -12,9 +12,9 @@ const socketConfig = {
 
 const pubClient = createClient({ url: "redis://localhost:6379" });
 pubClient.on('connect', () => console.log('Connected to pubClient!'));
-pubClient.connect();
 const subClient = pubClient.duplicate();
 subClient.on('connect', () => console.log('Connected to subClient!'));
+pubClient.connect();
 subClient.connect();
 
 module.exports = (server, app) => {
