@@ -34,14 +34,6 @@ app.get('/test2', (req, res) => {
     res.json({ result: 'process.send' });
 });
 
-app.get('/test3', (req, res) => {
-    process.send({
-        type: 'process:msg',
-        data: req,
-    });
-    res.json({ result: 'process.send' });
-});
-
 app.get('/startTimer/:id', (req, res) => {
     const { id } = req.params;
     sendMessageToProcess(
