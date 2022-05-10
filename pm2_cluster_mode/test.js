@@ -20,19 +20,26 @@ app.get('/', (req, res) => {
 });
 
 app.get('/test', (req, res) => {
-    sendMessageToProcess(
-        0,
-        {
-            sendProcessInfo: {
-                pid: process.pid,
-                instanceId: process.NODE_APP_INSTANCE,
-            },
-            timerIdx: -1,
-        },
-        'test'
-    );
+    sendMessageToProcess(0, { hi: 'hi' }, 'test');
+    res.json({ result: 'pm2.sendDataToProcessId 0' });
+});
 
-    res.json({ result: '0번 프로세스에게 timerIdx가 -1인 test message 전송' });
+app.get('/test2', (req, res) => {
+    process.send({
+        type: 'process:msg',
+        data: {
+            success: true,
+        },
+    });
+    res.json({ result: 'process.send' });
+});
+
+app.get('/test3', (req, res) => {
+    process.send({
+        type: 'process:msg',
+        data: req,
+    });
+    res.json({ result: 'process.send' });
 });
 
 app.get('/startTimer/:id', (req, res) => {
@@ -95,16 +102,6 @@ const resolvePromise = async (id) => {
     console.log('[resolvePromise]', id);
 };
 
-process.on('message', function (message) {
-    if (message.topic == 'start timer' || message.topic == 'test') {
-      makePromise(message.data.timerIdx);
-    } else if (message.topic == 'finish timer') {
-      resolvePromise(message.data.timerIdx);
-    } else if (message.topic == 'get map') {
-      console.log(process.pid, Array.from(timerResolveMap.keys()));
-    }
-});
-
 server.listen(port, () => {
     console.log(`listening at http://localhost:${port}`);
 });
@@ -124,3 +121,27 @@ const sendMessageToProcess = (processId, data, topic) => {
         }
     );
 };
+
+process.on('message', function (message) {
+    //pm2.sendDataToProcessId의 특정 프로세스에서
+    if (message.topic == 'start timer') {
+        makePromise(message.data.timerIdx);
+    } else if (message.topic == 'finish timer') {
+        resolvePromise(message.data.timerIdx);
+    } else if (message.topic == 'get map') {
+        console.log(process.pid, Array.from(timerResolveMap.keys()));
+    } else if (message.topic == 'test') {
+        if (message.data.res) {
+            message.data.res.json({ data: 'hi' });
+        } else {
+            console.log('process.on', message.data);
+        }
+    }
+});
+
+pm2.launchBus((err, pm2_bus) => {
+    //모든 프로세스에서 받음
+    pm2_bus.on('process:msg', function (packet) {
+        console.log('pm2 launchBus', packet);
+    });
+});
