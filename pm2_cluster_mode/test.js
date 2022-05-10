@@ -19,16 +19,16 @@ app.get('/', (req, res) => {
     res.json({ result: '연결 성공' });
 });
 
-app.get('/test', (req, res) => {
+app.get('/testSendMessageToProcessId', (req, res) => {
     sendMessageToProcess(0, { hi: 'hi' }, 'test');
     res.json({ result: 'pm2.sendDataToProcessId 0' });
 });
 
-app.get('/test2', (req, res) => {
+app.get('/testSendMessageToAllProcesses', (req, res) => {
     process.send({
         type: 'process:msg',
         data: {
-            success: true,
+            type: 'test',
         },
     });
     res.json({ result: 'process.send' });
@@ -72,8 +72,18 @@ app.get('/map', (req, res) => {
     sendMessageToProcess(0, {}, 'get map');
     res.json({ pid, mapKeys: Array.from(timerResolveMap.keys()) });
 });
+app.get('/set', (req, res) => {
+    process.send({
+        type: 'process:msg',
+        data: {
+            type: 'getSet',
+        },
+    });
+    res.json({ success: true });
+});
 
-const timerResolveMap = new Map(); // key: id
+const timerResolveMap = new Map(); // key:id, value:resolve
+const timerIdxSet = new Set();
 const makePromise = async (id) => {
     console.log('[makePromise]', id);
 
@@ -118,10 +128,24 @@ process.on('message', function (message) {
     //pm2.sendDataToProcessId의 특정 프로세스에서
     if (message.topic == 'start timer') {
         makePromise(message.data.timerIdx);
+        process.send({
+            type: 'process:msg',
+            data: {
+                type: 'start',
+                timerIdx: message.data.timerIdx,
+            },
+        });
     } else if (message.topic == 'finish timer') {
         resolvePromise(message.data.timerIdx);
+        process.send({
+            type: 'process:msg',
+            data: {
+                type: 'finish',
+                timerIdx: message.data.timerIdx,
+            },
+        });
     } else if (message.topic == 'get map') {
-        console.log(process.pid, Array.from(timerResolveMap.keys()));
+        console.log('Map', Array.from(timerResolveMap.keys()));
     } else if (message.topic == 'test') {
         if (message.data.res) {
             message.data.res.json({ data: 'hi' });
@@ -134,6 +158,14 @@ process.on('message', function (message) {
 pm2.launchBus((err, pm2_bus) => {
     //모든 프로세스에서 받음
     pm2_bus.on('process:msg', function (packet) {
-        console.log('pm2 launchBus', packet);
+        if (packet.data.type == 'start') {
+            timerIdxSet.add(packet.data.timerIdx);
+        } else if (packet.data.type == 'finish') {
+            timerIdxSet.delete(packet.data.timerIdx);
+        } else if (packet.data.type == 'getSet') {
+            console.log('TimerIdxSet', Array.from(timerIdxSet));
+        } else {
+            console.log(packet);
+        }
     });
 });
